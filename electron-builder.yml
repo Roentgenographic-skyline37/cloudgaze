@@ -10,13 +10,23 @@ win:
   target:
     - portable
     - nsis
-  artifactName: ${productName}-${version}-windows-${target}.${ext}
+# Each Windows target needs its own name — both emit .exe, so a shared
+# artifactName would collide. (${target} is not a valid electron-builder macro.)
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
+  artifactName: ${productName}-${version}-windows-setup.${ext}
+portable:
+  artifactName: ${productName}-${version}-windows-portable.${ext}
 mac:
+  # Build separate x64 and arm64 dmgs so both Intel and Apple Silicon Macs are
+  # covered (more robust than a universal lipo merge, which this pure-JS app
+  # doesn't need).
   target:
-    - dmg
+    - target: dmg
+      arch:
+        - x64
+        - arm64
   category: public.app-category.developer-tools
   artifactName: ${productName}-${version}-mac-${arch}.${ext}
 linux:

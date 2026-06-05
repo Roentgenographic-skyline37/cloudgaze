@@ -29,7 +29,11 @@ jobs:
           node-version: 20
           cache: npm
 
-      - run: npm ci
+      # `npm install` (not `npm ci`): the committed lockfile is generated on one
+      # OS and omits other platforms' optional Rollup native binaries
+      # (npm/cli#4828). `npm install` re-resolves them per-runner so
+      # electron-vite/Rollup can build on Linux and macOS too.
+      - run: npm install --no-audit --no-fund
 
       - run: npm run typecheck
 
