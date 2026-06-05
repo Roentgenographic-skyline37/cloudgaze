@@ -1,8 +1,8 @@
 /** Inventory handler — per-service counts + identity for the Overview page. */
 import type { IpcMain } from 'electron'
 import { CHANNELS } from '@shared/contract'
-import type { InventoryReq, InventoryRes } from '@shared/contract'
-import { getInventory } from '../../services/inventory'
+import type { InventoryReq, InventoryRes, InventoryStreamRes } from '@shared/contract'
+import { getInventory, streamInventory } from '../../services/inventory'
 import { checkCredentials } from '../../services/credentials'
 
 export function registerInventoryHandlers(ipcMain: IpcMain): void {
@@ -13,4 +13,19 @@ export function registerInventoryHandlers(ipcMain: IpcMain): void {
     ])
     return { counts, identity: status.identity }
   })
+
+  ipcMain.handle(
+    CHANNELS.inventory.stream,
+    async (e, req: InventoryReq & { streamId: string }): Promise<InventoryStreamRes> => {
+      // Kick the identity probe in parallel so it's ready by the time the last
+      // service finishes.
+      const idP = checkCredentials(req.ctx)
+      await streamInventory(req.ctx, req.services, (count) => {
+        if (e.sender.isDestroyed()) return
+        e.sender.send(CHANNELS.inventory.progress, { streamId: req.streamId, count })
+      })
+      const status = await idP
+      return { identity: status.identity }
+    }
+  )
 }

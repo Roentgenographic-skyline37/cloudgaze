@@ -1,12 +1,12 @@
 import { useState, type ComponentType } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as Icons from 'lucide-react'
-import { serviceById, type ServiceMeta } from '@shared/services'
+import { serviceById, SERVICES, type ServiceMeta } from '@shared/services'
 import { regionLabel } from '@shared/config'
 import type { InventoryCount } from '@shared/types'
-import { useInventory } from '../lib/query'
+import { useStreamingInventory } from '../lib/query'
 import { useAppStore } from '../store/useAppStore'
-import { Card, StatTile, QueryBoundary, EmptyState } from '../components/ui'
+import { Card, StatTile, EmptyState, ErrorState } from '../components/ui'
 import { DeployedServiceSection } from '../components/DeployedServiceSection'
 import { ResourceDrawer } from '../components/ResourceDrawer'
 import { formatNumber } from '../lib/format'
@@ -47,105 +47,127 @@ export function Overview(): JSX.Element {
   const storeIdentity = useAppStore((s) => s.identity)
   const [showAll, setShowAll] = useState(false)
   const [selected, setSelected] = useState<{ service: string; id: string } | null>(null)
-  const inv = useInventory()
+  const inv = useStreamingInventory(SERVICES.length)
+
+  const identity = inv.identity ?? storeIdentity
+  const withMeta = inv.counts
+    .map((c) => ({ entry: c, service: serviceById(c.service) }))
+    .filter((x): x is { entry: InventoryCount; service: ServiceMeta } => Boolean(x.service))
+
+  const deployed = withMeta
+    .filter((x) => !x.entry.error && x.entry.count > 0)
+    .sort((a, b) => b.entry.count - a.entry.count)
+  const others = withMeta.filter((x) => x.entry.error || x.entry.count === 0)
+
+  const total = deployed.reduce((sum, x) => sum + x.entry.count, 0)
+  const noAccess = inv.counts.filter((c) => c.error).length
+  const scanProgress = inv.progress.total
+    ? Math.round((inv.progress.done / inv.progress.total) * 100)
+    : 0
+
+  if (inv.error) {
+    return (
+      <div className="space-y-5">
+        <ErrorState error={inv.error} />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-5">
-      <QueryBoundary query={inv}>
-        {(data) => {
-          const identity = data.identity ?? storeIdentity
-          const withMeta = data.counts
-            .map((c) => ({ entry: c, service: serviceById(c.service) }))
-            .filter((x): x is { entry: InventoryCount; service: ServiceMeta } => Boolean(x.service))
+      <Card className="p-4">
+        <div className="flex flex-wrap items-center gap-x-8 gap-y-2">
+          <div className="flex items-center gap-2 text-sm font-semibold text-fg">
+            <Icons.UserCircle className="h-4 w-4 text-accent" />
+            {identity?.accountId ? `Account ${identity.accountId}` : 'AWS account'}
+          </div>
+          <div className="min-w-0 truncate font-mono text-xs text-fg-subtle" title={identity?.arn}>
+            {identity?.arn ?? '—'}
+          </div>
+          <div className="ml-auto text-xs text-fg-muted">{regionLabel(region)}</div>
+        </div>
+      </Card>
 
-          const deployed = withMeta
-            .filter((x) => !x.entry.error && x.entry.count > 0)
-            .sort((a, b) => b.entry.count - a.entry.count)
-          const others = withMeta.filter((x) => x.entry.error || x.entry.count === 0)
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatTile label="Resources deployed" value={formatNumber(total)} sub={`in ${region}`} tone="accent" />
+        <StatTile label="Services in use" value={formatNumber(deployed.length)} sub="with ≥ 1 resource" />
+        <StatTile
+          label="Services scanned"
+          value={
+            inv.isLoading ? (
+              <span className="inline-flex items-baseline gap-1.5">
+                {formatNumber(inv.progress.done)}
+                <span className="text-xs text-fg-subtle">/ {inv.progress.total}</span>
+              </span>
+            ) : (
+              formatNumber(inv.counts.length)
+            )
+          }
+          sub={inv.isLoading ? `loading… ${scanProgress}%` : undefined}
+        />
+        <StatTile
+          label="No access"
+          value={formatNumber(noAccess)}
+          sub="permission or region gaps"
+          tone={noAccess ? 'warn' : 'neutral'}
+        />
+      </div>
 
-          const total = deployed.reduce((sum, x) => sum + x.entry.count, 0)
-          const noAccess = data.counts.filter((c) => c.error).length
+      <div>
+        <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-fg">
+          <Icons.Boxes className="h-4 w-4 text-accent" />
+          Deployed in {region}
+          <span className="text-fg-subtle">· {deployed.length} services</span>
+          {inv.isLoading && (
+            <span className="ml-1 inline-flex items-center gap-1 text-xs text-fg-subtle">
+              <Icons.Loader2 className="h-3 w-3 animate-spin" />
+              {inv.progress.done} of {inv.progress.total} scanned
+            </span>
+          )}
+        </h2>
+        {deployed.length === 0 && inv.isComplete ? (
+          <EmptyState
+            message={`No active resources found in ${region}.`}
+            hint="Switch the region in the top bar — your resources may live elsewhere. Services you lack permission for appear under “Not deployed / no access”."
+          />
+        ) : (
+          <div className="space-y-3">
+            {deployed.map((x) => (
+              <DeployedServiceSection
+                key={x.service.id}
+                service={x.service}
+                entry={x.entry}
+                onSelect={(service, id) => setSelected({ service, id })}
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
-          return (
-            <>
-              <Card className="p-4">
-                <div className="flex flex-wrap items-center gap-x-8 gap-y-2">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-fg">
-                    <Icons.UserCircle className="h-4 w-4 text-accent" />
-                    {identity?.accountId ? `Account ${identity.accountId}` : 'AWS account'}
-                  </div>
-                  <div className="min-w-0 truncate font-mono text-xs text-fg-subtle" title={identity?.arn}>
-                    {identity?.arn ?? '—'}
-                  </div>
-                  <div className="ml-auto text-xs text-fg-muted">{regionLabel(region)}</div>
-                </div>
-              </Card>
-
-              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                <StatTile label="Resources deployed" value={formatNumber(total)} sub={`in ${region}`} tone="accent" />
-                <StatTile label="Services in use" value={formatNumber(deployed.length)} sub="with ≥ 1 resource" />
-                <StatTile label="Services scanned" value={formatNumber(data.counts.length)} />
-                <StatTile
-                  label="No access"
-                  value={formatNumber(noAccess)}
-                  sub="permission or region gaps"
-                  tone={noAccess ? 'warn' : 'neutral'}
+      {others.length > 0 && (
+        <div>
+          <button
+            onClick={() => setShowAll((v) => !v)}
+            className="mb-2 flex items-center gap-1.5 text-sm font-medium text-fg-muted transition hover:text-fg"
+          >
+            {showAll ? <Icons.ChevronDown className="h-4 w-4" /> : <Icons.ChevronRight className="h-4 w-4" />}
+            Not deployed / no access
+            <span className="text-fg-subtle">· {others.length}</span>
+          </button>
+          {showAll && (
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {others.map((x) => (
+                <CompactTile
+                  key={x.service.id}
+                  service={x.service}
+                  entry={x.entry}
+                  onClick={() => navigate(`/s/${x.service.id}`)}
                 />
-              </div>
-
-              <div>
-                <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold text-fg">
-                  <Icons.Boxes className="h-4 w-4 text-accent" />
-                  Deployed in {region}
-                  <span className="text-fg-subtle">· {deployed.length} services</span>
-                </h2>
-                {deployed.length === 0 ? (
-                  <EmptyState
-                    message={`No active resources found in ${region}.`}
-                    hint="Switch the region in the top bar — your resources may live elsewhere. Services you lack permission for appear under “Not deployed / no access”."
-                  />
-                ) : (
-                  <div className="space-y-3">
-                    {deployed.map((x) => (
-                      <DeployedServiceSection
-                        key={x.service.id}
-                        service={x.service}
-                        entry={x.entry}
-                        onSelect={(service, id) => setSelected({ service, id })}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {others.length > 0 && (
-                <div>
-                  <button
-                    onClick={() => setShowAll((v) => !v)}
-                    className="mb-2 flex items-center gap-1.5 text-sm font-medium text-fg-muted transition hover:text-fg"
-                  >
-                    {showAll ? <Icons.ChevronDown className="h-4 w-4" /> : <Icons.ChevronRight className="h-4 w-4" />}
-                    Not deployed / no access
-                    <span className="text-fg-subtle">· {others.length}</span>
-                  </button>
-                  {showAll && (
-                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                      {others.map((x) => (
-                        <CompactTile
-                          key={x.service.id}
-                          service={x.service}
-                          entry={x.entry}
-                          onClick={() => navigate(`/s/${x.service.id}`)}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </>
-          )
-        }}
-      </QueryBoundary>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {selected && (
         <ResourceDrawer serviceId={selected.service} id={selected.id} onClose={() => setSelected(null)} />

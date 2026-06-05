@@ -30,16 +30,40 @@ function summarize(res: ResourceListResult): { breakdown?: InventoryBreakdown[];
   return { breakdown, samples }
 }
 
+/** Count one service. Never throws — errors are folded into the result. */
+async function countOne(ctx: AwsCtx, service: string): Promise<InventoryCount> {
+  try {
+    const res = await listResource(ctx, service)
+    const { breakdown, samples } = summarize(res)
+    return { service, count: res.rows.length, breakdown, samples }
+  } catch (e) {
+    return { service, count: 0, error: errMsg(e) }
+  }
+}
+
 export async function getInventory(ctx: AwsCtx, serviceIds?: string[]): Promise<InventoryCount[]> {
   const ids = serviceIds?.length ? serviceIds : SERVICES.map((s) => s.id)
+  return mapLimit(ids, 5, (service) => countOne(ctx, service))
+}
 
-  return mapLimit(ids, 8, async (service): Promise<InventoryCount> => {
+/**
+ * Same as getInventory but emits each per-service result the moment it's ready
+ * via the supplied callback, so the renderer can fill sections in
+ * progressively instead of waiting for the slowest service.
+ */
+export async function streamInventory(
+  ctx: AwsCtx,
+  serviceIds: string[] | undefined,
+  onCount: (c: InventoryCount) => void
+): Promise<void> {
+  const ids = serviceIds?.length ? serviceIds : SERVICES.map((s) => s.id)
+  await mapLimit(ids, 5, async (service) => {
+    const c = await countOne(ctx, service)
     try {
-      const res = await listResource(ctx, service)
-      const { breakdown, samples } = summarize(res)
-      return { service, count: res.rows.length, breakdown, samples }
-    } catch (e) {
-      return { service, count: 0, error: errMsg(e) }
+      onCount(c)
+    } catch {
+      // The consumer (a webContents) may have gone away — drop the event but
+      // keep counting the rest so the stream resolves cleanly.
     }
   })
 }

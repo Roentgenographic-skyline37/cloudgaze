@@ -51,7 +51,20 @@ export const CHANNELS = {
   },
   inventory: {
     /** Count resources across (a subset of) services for the Overview. */
-    get: 'inventory:get'
+    get: 'inventory:get',
+    /**
+     * Request a streaming inventory: per-service counts arrive via the
+     * `inventoryProgress` push channel as each lister completes, and this
+     * channel resolves with the final identity. Lets the UI render each
+     * service the moment its data is ready instead of waiting for everything.
+     */
+    stream: 'inventory:stream',
+    /** Push channel: one event per service completion (main → renderer). */
+    progress: 'inventory:progress'
+  },
+  logs: {
+    /** Search/tail a CloudWatch Logs group with a filter pattern. */
+    filter: 'logs:filter'
   },
   cost: {
     /** Cost Explorer summary (graceful when not accessible). */
@@ -131,6 +144,59 @@ export interface InventoryRes {
   identity?: AwsIdentity
 }
 
+/** Resolves once every service has been counted; counts arrive via push. */
+export interface InventoryStreamRes {
+  identity?: AwsIdentity
+}
+
+/** One per-service event from the inventory:progress push channel. */
+export interface InventoryProgressEvent {
+  /** Stable id for this stream — lets the renderer drop late events from a
+   *  previous (profile, region) when the user switched mid-stream. */
+  streamId: string
+  count: InventoryCount
+}
+
+// ---------------------------------------------------------------------------
+// Logs (CloudWatch Logs)
+// ---------------------------------------------------------------------------
+
+export interface LogsFilterReq {
+  ctx: AwsCtx
+  /** Log group name (the user picks one from the log-groups inventory). */
+  group: string
+  /** Window to search. */
+  fromIso: string
+  toIso: string
+  /**
+   * CloudWatch filter pattern: supports JSON field syntax for structured logs
+   * (`{ $.level = "ERROR" }`, `{ $.code >= 500 }`) and plain term/space-AND
+   * syntax for unstructured logs (`ERROR -Debug`). Empty → no filter.
+   */
+  pattern?: string
+  /** Hard cap on events returned (default 1000). */
+  limit?: number
+  /** Optional: only return events newer than this id (for tail-mode polling). */
+  sinceEventId?: string
+}
+
+export interface LogEvent {
+  id: string
+  /** Epoch millis. */
+  ts: number
+  /** Log stream this event came from. */
+  stream: string
+  message: string
+  /** Parsed JSON fields if the message was structured; absent otherwise. */
+  fields?: Record<string, unknown>
+}
+
+export interface LogsFilterRes {
+  events: LogEvent[]
+  /** True when the response was capped by `limit`. */
+  truncated: boolean
+}
+
 // ---------------------------------------------------------------------------
 // Cost
 // ---------------------------------------------------------------------------
@@ -155,5 +221,15 @@ export interface CloudGazeApi {
   getMetrics(req: MetricsReq): Promise<MetricsRes>
   getServiceMetrics(req: ServiceMetricsReq): Promise<MetricsRes>
   getInventory(req: InventoryReq): Promise<InventoryRes>
+  /**
+   * Start a streaming inventory. The returned promise resolves with identity
+   * once every service is counted; individual per-service counts arrive via
+   * `onInventoryProgress`. Pass the same `streamId` to both so the renderer
+   * can ignore events that belong to a superseded stream.
+   */
+  streamInventory(req: InventoryReq, streamId: string): Promise<InventoryStreamRes>
+  /** Subscribe to per-service counts. Returns an unsubscribe fn. */
+  onInventoryProgress(cb: (e: InventoryProgressEvent) => void): () => void
+  filterLogs(req: LogsFilterReq): Promise<LogsFilterRes>
   getCost(req: CostReq): Promise<CostRes>
 }

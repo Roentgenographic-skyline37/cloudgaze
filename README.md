@@ -106,7 +106,9 @@ CloudGaze groups services the way you think about them:
 | **Management** | CloudFormation stacks, CloudWatch alarms & log groups, SSM parameters |
 | **Integration** | SNS topics, SQS queues, Step Functions |
 
-For each service you get a sortable, searchable, paginated table; click any row for a detail panel with grouped attributes, tags, related resources, **live CloudWatch charts** (where the service emits metrics), and the full raw `Describe` response. An **Overview** page inventories counts across every service so you can see the whole account at a glance, and a global **time-range picker** + **auto-refresh** drive the metric charts.
+For each service you get a sortable, searchable, paginated table; click any row for a detail panel with grouped attributes, tags, related resources, **live CloudWatch charts** (where the service emits metrics), and the full raw `Describe` response. An **Overview** page inventories counts across every service so you can see the whole account at a glance — and **streams in progressively**, so each service renders the moment its data arrives instead of waiting for the slowest call. A global **time-range picker** + **auto-refresh** drive the metric charts.
+
+A dedicated **Logs** page reads from **CloudWatch Logs** for EC2, Lambda, ECS, RDS, or anything else streaming to a log group: pick a group, run a CloudWatch filter pattern (full JSON field syntax — `{ $.level = "ERROR" }`, `{ $.statusCode >= 500 }`), expand any event to see its parsed fields, click a field to filter by it, or flip **Tail** for a 3-second live refresh.
 
 ---
 

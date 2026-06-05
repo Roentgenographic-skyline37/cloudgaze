@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, ExternalLink } from 'lucide-react'
+import { X, ExternalLink, ScrollText } from 'lucide-react'
 import type { DetailSection } from '@shared/types'
 import { useResourceDetail } from '../lib/query'
 import { serviceById } from '@shared/services'
@@ -11,6 +11,17 @@ import { TagList } from './TagList'
 import { JsonView } from './JsonView'
 import { MetricsGrid } from './MetricsGrid'
 import { cn } from '../lib/cn'
+
+/**
+ * For services whose CloudWatch Logs group name is predictable from the
+ * resource id/name, return the group string so the detail panel can deep-link
+ * into the logs viewer.
+ */
+function logGroupFor(serviceId: string, id: string, name?: string): string | undefined {
+  if (serviceId === 'log-groups') return name ?? id
+  if (serviceId === 'lambda') return `/aws/lambda/${name ?? id}`
+  return undefined
+}
 
 type Tab = 'details' | 'raw'
 
@@ -61,13 +72,28 @@ export function DetailPanel({
             )}
           </div>
         </div>
-        <button
-          onClick={onClose}
-          className="rounded-lg border border-border bg-surface-2 p-1.5 text-fg-muted transition hover:bg-surface-hover"
-          aria-label="Close"
-        >
-          <X className="h-4 w-4" />
-        </button>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {(() => {
+            const group = logGroupFor(serviceId, id, q.data?.name)
+            if (!group) return null
+            return (
+              <button
+                onClick={() => navigate(`/logs/${encodeURIComponent(group)}`)}
+                title={`View CloudWatch Logs for ${group}`}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-xs text-fg-muted transition hover:border-accent/50 hover:text-accent"
+              >
+                <ScrollText className="h-3.5 w-3.5" /> Logs
+              </button>
+            )
+          })()}
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-border bg-surface-2 p-1.5 text-fg-muted transition hover:bg-surface-hover"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       </header>
 
       <nav className="flex gap-1 border-b border-border px-4 pt-2">

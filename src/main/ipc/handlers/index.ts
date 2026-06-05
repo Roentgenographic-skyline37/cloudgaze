@@ -7,6 +7,7 @@ import { registerConnectionHandlers } from './connection'
 import { registerResourceHandlers } from './resources'
 import { registerMetricsHandlers } from './metrics'
 import { registerInventoryHandlers } from './inventory'
+import { registerLogsHandlers } from './logs'
 import { registerCostHandlers } from './cost'
 
 export function registerHandlers(ipcMain: IpcMain): void {
@@ -14,5 +15,6 @@ export function registerHandlers(ipcMain: IpcMain): void {
   registerResourceHandlers(ipcMain)
   registerMetricsHandlers(ipcMain)
   registerInventoryHandlers(ipcMain)
+  registerLogsHandlers(ipcMain)
   registerCostHandlers(ipcMain)
 }

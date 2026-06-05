@@ -54,6 +54,7 @@ export function Sidebar(): JSX.Element {
 
       <div className="px-2 pb-1">
         <Item to="/" icon="LayoutDashboard" label="Overview" end />
+        <Item to="/logs" icon="ScrollText" label="Logs" />
         <Item to="/cost" icon="DollarSign" label="Cost" />
       </div>
 

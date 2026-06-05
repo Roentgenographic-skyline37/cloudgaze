@@ -15,6 +15,7 @@ import { cn } from '../lib/cn'
 function pageTitle(pathname: string): string {
   if (pathname === '/') return 'Overview'
   if (pathname === '/cost') return 'Cost'
+  if (pathname === '/logs' || pathname.startsWith('/logs/')) return 'Logs'
   if (pathname.startsWith('/s/')) {
     const id = pathname.slice('/s/'.length)
     return serviceById(id)?.label ?? 'Resources'
