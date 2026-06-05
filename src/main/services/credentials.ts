@@ -97,7 +97,8 @@ export async function listProfiles(): Promise<AwsProfile[]> {
   const found = new Map<string, AwsProfile>()
 
   for (const section of creds.order) {
-    found.set(section, { name: section, source: 'credentials' })
+    const temporary = Boolean(creds.sections[section]?.aws_session_token)
+    found.set(section, { name: section, source: 'credentials', temporary: temporary || undefined })
   }
 
   for (const section of conf.order) {
@@ -108,8 +109,17 @@ export async function listProfiles(): Promise<AwsProfile[]> {
     if (existing) {
       if (region && !existing.region) existing.region = region
     } else {
+      // SSO and credential_process / role-assumption profiles ALL produce
+      // temporary credentials at runtime (the SDK mints them from the config).
       const isSso = Boolean(conf.sections[section]?.sso_start_url || conf.sections[section]?.sso_session)
-      found.set(name, { name, region, source: isSso ? 'sso' : 'config' })
+      const isProcess = Boolean(conf.sections[section]?.credential_process)
+      const isAssumeRole = Boolean(conf.sections[section]?.role_arn && conf.sections[section]?.source_profile)
+      found.set(name, {
+        name,
+        region,
+        source: isSso ? 'sso' : 'config',
+        temporary: isSso || isProcess || isAssumeRole || undefined
+      })
     }
   }
 
@@ -117,7 +127,8 @@ export async function listProfiles(): Promise<AwsProfile[]> {
     found.set('default', {
       name: 'default',
       region: process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION,
-      source: 'env'
+      source: 'env',
+      temporary: Boolean(process.env.AWS_SESSION_TOKEN) || undefined
     })
   }
 
@@ -127,6 +138,29 @@ export async function listProfiles(): Promise<AwsProfile[]> {
     if (b.name === 'default') return 1
     return a.name.localeCompare(b.name)
   })
+}
+
+/**
+ * Translate the most common STS errors into something a human can act on.
+ * Temporary credentials in particular fail in opaque ways (an expired session
+ * token comes back as a SignatureDoesNotMatch / ExpiredToken with no hint).
+ */
+function explainStsError(e: unknown): string {
+  const raw = errMsg(e)
+  const code = (e as { name?: string; Code?: string })?.name ?? (e as { Code?: string })?.Code ?? ''
+  if (/ExpiredToken|TokenRefreshRequired/i.test(code) || /expired/i.test(raw)) {
+    return 'Your temporary credentials have expired. Refresh them (e.g. re-run `aws sso login`, or paste a fresh session token) and try again.'
+  }
+  if (/InvalidClientTokenId/i.test(code)) {
+    return 'Access key ID is not recognized. If these are temporary credentials, make sure you also pasted the session token.'
+  }
+  if (/SignatureDoesNotMatch/i.test(code)) {
+    return 'Signature did not match. Double-check the secret key — and, for temporary credentials, that the session token belongs to the same key.'
+  }
+  if (/CredentialsProviderError|Could not load credentials/i.test(raw)) {
+    return 'No usable credentials found for this profile. Run `aws configure --profile <name>` (or `aws sso login --profile <name>` for SSO), or paste them below.'
+  }
+  return raw
 }
 
 /** STS GetCallerIdentity — proves the (profile, region) credentials are usable. */
@@ -143,7 +177,7 @@ export async function checkCredentials(ctx: AwsCtx): Promise<ConnectionStatus> {
     }
     return { ok: true, identity, profile: ctx.profile, region: ctx.region }
   } catch (e) {
-    return { ok: false, profile: ctx.profile, region: ctx.region, error: errMsg(e) }
+    return { ok: false, profile: ctx.profile, region: ctx.region, error: explainStsError(e) }
   }
 }
 

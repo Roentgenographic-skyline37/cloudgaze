@@ -49,6 +49,7 @@ export function SetupGate({ children }: { children: ReactNode }): JSX.Element {
   const [profiles, setProfiles] = useState<AwsProfile[]>([])
   const [accessKeyId, setAccessKeyId] = useState('')
   const [secret, setSecret] = useState('')
+  const [sessionToken, setSessionToken] = useState('')
   const [newProfile, setNewProfile] = useState('default')
   const [saving, setSaving] = useState(false)
 
@@ -84,7 +85,13 @@ export function SetupGate({ children }: { children: ReactNode }): JSX.Element {
     setSaving(true)
     setError(undefined)
     try {
-      const res = await api.saveCreds({ accessKeyId, secretAccessKey: secret, region, profile: newProfile })
+      const res = await api.saveCreds({
+        accessKeyId,
+        secretAccessKey: secret,
+        sessionToken: sessionToken.trim() || undefined,
+        region,
+        profile: newProfile
+      })
       if (res.ok) {
         setProfile(newProfile)
         setIdentity(res.identity)
@@ -127,12 +134,21 @@ export function SetupGate({ children }: { children: ReactNode }): JSX.Element {
               <div className="mb-4">
                 <p className="mb-2 text-sm text-fg-muted">
                   Pick a profile and region, then re-check — CloudGaze uses the credentials already on your machine.
+                  Temporary credentials (SSO, assume-role, session-token) are supported.
                 </p>
                 <div className="flex items-center gap-2">
                   <Select
                     value={profile}
                     onChange={setProfile}
-                    options={profiles.map((p) => ({ value: p.name, label: p.name }))}
+                    options={profiles.map((p) => ({
+                      value: p.name,
+                      label:
+                        p.source === 'sso'
+                          ? `${p.name} (SSO)`
+                          : p.temporary
+                            ? `${p.name} (temp)`
+                            : p.name
+                    }))}
                     className="flex-1"
                   />
                   <Select
@@ -148,27 +164,50 @@ export function SetupGate({ children }: { children: ReactNode }): JSX.Element {
                     Re-check
                   </button>
                 </div>
+                {profiles.find((p) => p.name === profile)?.source === 'sso' && (
+                  <p className="mt-2 text-[11px] text-fg-subtle">
+                    SSO profile — if the session has expired, run{' '}
+                    <code className="rounded bg-surface-2 px-1 py-0.5 font-mono text-[10px] text-fg">
+                      aws sso login --profile {profile}
+                    </code>{' '}
+                    in a terminal, then re-check.
+                  </p>
+                )}
               </div>
             )}
 
             <details className="group" open={profiles.length === 0}>
               <summary className="cursor-pointer list-none text-xs font-medium uppercase tracking-wide text-fg-subtle">
-                Or paste an access key
+                Or paste credentials (permanent or temporary)
               </summary>
               <p className="mb-3 mt-2 text-xs leading-relaxed text-fg-muted">
                 Saved to your standard{' '}
                 <code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-fg">~/.aws</code> profile
                 (exactly like <code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-fg">aws configure</code>),
-                never to this app.
+                never to this app. For temporary credentials (from the AWS SSO Access Portal, federation,
+                or <code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-fg">aws sts assume-role</code>),
+                paste the <strong>session token</strong> too.
               </p>
               <div className="space-y-2.5">
                 <Field label="Profile name" value={newProfile} onChange={setNewProfile} placeholder="default" />
-                <Field label="Access Key ID" value={accessKeyId} onChange={setAccessKeyId} placeholder="AKIA…" />
+                <Field
+                  label="Access Key ID"
+                  value={accessKeyId}
+                  onChange={setAccessKeyId}
+                  placeholder="AKIA… (or ASIA… for temporary)"
+                />
                 <Field
                   label="Secret Access Key"
                   value={secret}
                   onChange={setSecret}
                   placeholder="••••••••••••••••"
+                  type="password"
+                />
+                <Field
+                  label="Session Token (only for temporary credentials)"
+                  value={sessionToken}
+                  onChange={setSessionToken}
+                  placeholder="leave empty for permanent credentials"
                   type="password"
                 />
                 <Field label="Region" value={region} onChange={setRegion} placeholder="us-east-1" />

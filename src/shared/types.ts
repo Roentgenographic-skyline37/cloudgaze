@@ -66,6 +66,8 @@ export interface AwsProfile {
   region?: string
   /** Where the profile was discovered. */
   source: 'credentials' | 'config' | 'env' | 'sso'
+  /** True when the profile carries a session token — i.e. temporary credentials. */
+  temporary?: boolean
 }
 
 export interface AwsRegion {

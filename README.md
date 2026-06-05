@@ -41,7 +41,7 @@ The AWS Console is powerful but slow, region-locked one-page-at-a-time, and nois
  └─────────────────────────┘
 ```
 
-- **Credentials** come from the standard AWS chain via `fromNodeProviderChain` — env vars, then `~/.aws/credentials` + `~/.aws/config`. Nothing is persisted by the app.
+- **Credentials** come from the standard AWS chain via `fromNodeProviderChain` — env vars, then `~/.aws/credentials` + `~/.aws/config`. **Temporary credentials work too:** session-token profiles, SSO (`sso_start_url` / `sso_session`), `credential_process`, and `source_profile` + `role_arn` assume-role chains are all resolved natively. SSO and assume-role profiles are tagged in the picker; pasted temp creds (e.g. from the AWS Access Portal) accept a session-token field in the setup form. Nothing is persisted by the app.
 - **Profiles & regions** are discovered from your `~/.aws` files and switchable from the header. Clients are memoized per `(profile, region)`.
 - **Everything is read-only.** There is no write path anywhere in the app.
 
