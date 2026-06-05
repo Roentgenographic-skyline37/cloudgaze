@@ -6,7 +6,14 @@
   "author": "CloudGaze contributors",
   "license": "MIT",
   "type": "module",
-  "homepage": "https://github.com/cloudgaze/cloudgaze",
+  "homepage": "https://github.com/vikas0706/cloudgaze#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vikas0706/cloudgaze.git"
+  },
+  "bugs": {
+    "url": "https://github.com/vikas0706/cloudgaze/issues"
+  },
   "keywords": [
     "aws",
     "dashboard",
