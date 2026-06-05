@@ -29,10 +29,10 @@ jobs:
           node-version: 20
           cache: npm
 
-      # `npm install` (not `npm ci`): the committed lockfile is generated on one
-      # OS and omits other platforms' optional Rollup native binaries
-      # (npm/cli#4828). `npm install` re-resolves them per-runner so
-      # electron-vite/Rollup can build on Linux and macOS too.
+      # No package-lock.json is committed (see .gitignore): npm records only the
+      # host platform's optional Rollup native binary, so a lockfile made on one
+      # OS breaks installs on the others (npm/cli#4828). Each runner resolves its
+      # own @rollup/rollup-<platform> here so electron-vite/Rollup can build.
       - run: npm install --no-audit --no-fund
 
       - run: npm run typecheck
@@ -41,6 +41,9 @@ jobs:
         run: npm run dist:ci
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # No Apple signing certs in CI — don't let electron-builder fail the
+          # macOS build hunting for an identity; ship an unsigned dmg.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
 
       - name: Upload platform bundles
         uses: actions/upload-artifact@v4

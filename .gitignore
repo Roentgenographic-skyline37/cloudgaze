@@ -2,6 +2,12 @@ node_modules/
 out/
 dist/
 dist-app/
+
+# Not committed on purpose: npm records only the host platform's optional
+# native binaries (e.g. @rollup/rollup-*-gnu), so a lockfile generated on one
+# OS breaks `npm ci`/`npm install` on the others (npm/cli#4828). CI installs
+# fresh per-runner instead. See .github/workflows/release.yml.
+package-lock.json
 *.tsbuildinfo
 *.log
 .DS_Store
