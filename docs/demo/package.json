@@ -1,0 +1,16 @@
+{
+  "name": "cloudgaze-demo-generator",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Dev-only: renders docs/demo.gif from demo.html by driving headless Chrome. Not part of the app build.",
+  "scripts": {
+    "gif": "node generate.mjs"
+  },
+  "dependencies": {
+    "gifenc": "^1.0.3",
+    "gifsicle": "^7.0.1",
+    "pngjs": "^7.0.0",
+    "puppeteer-core": "^23.0.0"
+  }
+}

@@ -2,6 +2,12 @@
 
 **A local, open-source desktop app to see *everything* running in your AWS account — read-only, from your own machine.**
 
+<p align="center">
+  <img src="docs/demo.gif" alt="CloudGaze — a live, read-only dashboard of your AWS account: deployed services with headline CloudWatch metrics and per-resource detail" width="900" />
+  <br />
+  <sub>Walkthrough with <em>mock</em> data — no real AWS account is shown. <a href="docs/demo/">How this was generated →</a></sub>
+</p>
+
 CloudGaze is an Electron desktop app that connects to AWS using the credentials already on your machine (`~/.aws`, env vars — exactly what the AWS CLI uses) and gives you a clean, detailed, multi-region view of your live resources across dozens of services: EC2, EBS, VPC, S3, Lambda, RDS, DynamoDB, ECS, load balancers, IAM, CloudWatch, and more — with per-resource detail, tags, raw JSON, and CloudWatch charts.
 
 No servers to deploy. No agents to install. No secrets stored by the app. Just run it.

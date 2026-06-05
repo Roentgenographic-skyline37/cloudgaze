@@ -1,0 +1,648 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CloudGaze — demo</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  // Mirror the app's tailwind.config.js so the exact class names resolve.
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        colors: {
+          bg: 'rgb(var(--bg) / <alpha-value>)',
+          'bg-elevated': 'rgb(var(--bg-elevated) / <alpha-value>)',
+          surface: 'rgb(var(--surface) / <alpha-value>)',
+          'surface-2': 'rgb(var(--surface-2) / <alpha-value>)',
+          'surface-hover': 'rgb(var(--surface-hover) / <alpha-value>)',
+          border: 'rgb(var(--border) / <alpha-value>)',
+          'border-strong': 'rgb(var(--border-strong) / <alpha-value>)',
+          fg: 'rgb(var(--fg) / <alpha-value>)',
+          'fg-muted': 'rgb(var(--fg-muted) / <alpha-value>)',
+          'fg-subtle': 'rgb(var(--fg-subtle) / <alpha-value>)',
+          accent: 'rgb(var(--accent) / <alpha-value>)',
+          'accent-hover': 'rgb(var(--accent-hover) / <alpha-value>)',
+          'accent-fg': 'rgb(var(--accent-fg) / <alpha-value>)',
+          'accent-soft': 'rgb(var(--accent-soft) / <alpha-value>)',
+          violet: 'rgb(var(--violet) / <alpha-value>)',
+          ok: 'rgb(var(--ok) / <alpha-value>)',
+          'ok-soft': 'rgb(var(--ok-soft) / <alpha-value>)',
+          warn: 'rgb(var(--warn) / <alpha-value>)',
+          'warn-soft': 'rgb(var(--warn-soft) / <alpha-value>)',
+          error: 'rgb(var(--error) / <alpha-value>)',
+          'error-soft': 'rgb(var(--error-soft) / <alpha-value>)',
+          info: 'rgb(var(--info) / <alpha-value>)',
+          'info-soft': 'rgb(var(--info-soft) / <alpha-value>)'
+        },
+        fontFamily: {
+          sans: ['Inter', 'system-ui', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+          mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace']
+        },
+        borderRadius: { xl: '0.875rem', '2xl': '1.125rem' },
+        boxShadow: {
+          card: '0 1px 2px 0 rgb(0 0 0 / 0.06), 0 1px 3px 0 rgb(0 0 0 / 0.10)',
+          glow: '0 0 0 1px rgb(var(--accent) / 0.25), 0 8px 30px -6px rgb(var(--accent) / 0.35)'
+        }
+      }
+    }
+  }
+</script>
+<style>
+  :root {
+    --bg: 9 11 16; --bg-elevated: 13 17 24; --surface: 17 22 30; --surface-2: 22 28 38;
+    --surface-hover: 28 35 47; --border: 31 39 51; --border-strong: 46 57 74;
+    --fg: 232 237 243; --fg-muted: 148 161 178; --fg-subtle: 99 112 130;
+    --accent: 56 189 248; --accent-hover: 125 211 252; --accent-fg: 8 14 22; --accent-soft: 12 33 47;
+    --violet: 34 211 238;
+    --ok: 52 199 142; --ok-soft: 16 44 36; --warn: 240 184 64; --warn-soft: 48 39 16;
+    --error: 244 99 110; --error-soft: 52 24 30; --info: 96 165 250; --info-soft: 17 33 54;
+  }
+  html, body { height: 100%; }
+  body {
+    margin: 0; overflow: hidden;
+    background: rgb(var(--bg)); color: rgb(var(--fg));
+    font-family: Inter, system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  }
+  * { border-color: rgb(var(--border)); }
+  ::-webkit-scrollbar { width: 0; height: 0; }
+  .lucide { stroke-width: 2; }
+  /* manual-scroll viewport: we translate #page instead of native scroll for deterministic frames */
+  #scroll { position: relative; }
+  #page { will-change: transform; }
+  .spark-line { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  #cursor { position: fixed; top: 0; left: 0; z-index: 60; pointer-events: none; filter: drop-shadow(0 2px 3px rgb(0 0 0 / .45)); }
+  #pulse { position: fixed; z-index: 59; pointer-events: none; border-radius: 9999px;
+           border: 2px solid rgb(var(--accent)); transform: translate(-50%, -50%); }
+  #overlay { position: fixed; inset: 0; z-index: 40; background: rgb(0 0 0); opacity: 0; pointer-events: none; }
+  #drawer { position: fixed; top: 0; right: 0; height: 100%; width: 460px; z-index: 50;
+            transform: translateX(100%); background: rgb(var(--bg-elevated));
+            border-left: 1px solid rgb(var(--border)); box-shadow: -12px 0 40px -12px rgb(0 0 0 / .5); }
+</style>
+</head>
+<body>
+  <div id="app" class="flex h-screen w-screen overflow-hidden">
+    <!-- Sidebar -->
+    <aside class="flex h-full w-60 shrink-0 flex-col border-r border-border bg-bg-elevated">
+      <div class="flex items-center gap-2.5 px-4 py-4">
+        <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-accent to-violet text-accent-fg shadow-glow">
+          <i data-lucide="cloud" class="h-5 w-5"></i>
+        </div>
+        <div class="leading-tight">
+          <div class="text-sm font-semibold text-fg">CloudGaze</div>
+          <div class="text-[11px] text-fg-subtle">us-east-1</div>
+        </div>
+      </div>
+      <div class="px-2 pb-1" id="nav-top"></div>
+      <div class="px-3 py-2">
+        <div class="relative">
+          <i data-lucide="search" class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fg-subtle"></i>
+          <div class="w-full rounded-lg border border-border bg-surface-2 py-1.5 pl-8 pr-2 text-xs text-fg-subtle">Filter services…</div>
+        </div>
+      </div>
+      <nav id="nav" class="flex-1 space-y-3 overflow-hidden px-2 pb-3"></nav>
+      <div class="border-t border-border px-4 py-3">
+        <div class="flex items-center gap-2 text-[11px] text-fg-subtle">
+          <span class="h-2 w-2 rounded-full bg-ok"></span>
+          <span class="truncate">Account 273849162534</span>
+        </div>
+        <div class="mt-1 truncate text-[11px] text-fg-subtle/80">default · US East (N. Virginia)</div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="flex min-w-0 flex-1 flex-col">
+      <header class="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-bg-elevated/80 px-5 backdrop-blur">
+        <h1 class="text-base font-semibold text-fg">Overview</h1>
+        <div class="flex items-center gap-2">
+          <div class="flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-sm text-fg-muted">
+            <i data-lucide="user" class="h-3.5 w-3.5"></i> default <i data-lucide="chevron-down" class="h-3 w-3 text-fg-subtle"></i>
+          </div>
+          <div class="flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-sm text-fg-muted">
+            <i data-lucide="globe" class="h-3.5 w-3.5"></i> us-east-1 <i data-lucide="chevron-down" class="h-3 w-3 text-fg-subtle"></i>
+          </div>
+          <div class="flex items-center gap-1.5 rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-sm text-fg-muted">
+            <i data-lucide="clock" class="h-3.5 w-3.5"></i> 24h
+          </div>
+          <div class="rounded-lg border border-border bg-surface-2 p-2 text-fg-muted"><i data-lucide="rotate-cw" class="h-4 w-4"></i></div>
+          <div id="theme-btn" class="rounded-lg border border-border bg-surface-2 p-2 text-fg-muted"><i data-lucide="sun" class="h-4 w-4"></i></div>
+        </div>
+      </header>
+
+      <div id="scroll" class="flex-1 overflow-hidden">
+        <div id="page" class="px-6 py-5 space-y-5">
+          <!-- account card -->
+          <div class="rounded-xl border border-border bg-surface shadow-card p-4">
+            <div class="flex flex-wrap items-center gap-x-8 gap-y-2">
+              <div class="flex items-center gap-2 text-sm font-semibold text-fg">
+                <i data-lucide="user-circle" class="h-4 w-4 text-accent"></i> Account 273849162534
+              </div>
+              <div class="min-w-0 truncate font-mono text-xs text-fg-subtle">arn:aws:iam::273849162534:user/maya.dev</div>
+              <div class="ml-auto text-xs text-fg-muted">US East (N. Virginia)</div>
+            </div>
+          </div>
+          <!-- stat tiles -->
+          <div class="grid grid-cols-2 gap-3 lg:grid-cols-4" id="tiles"></div>
+          <!-- deployed header -->
+          <div>
+            <h2 class="mb-2 flex items-center gap-2 text-sm font-semibold text-fg">
+              <i data-lucide="boxes" class="h-4 w-4 text-accent"></i> Deployed in us-east-1
+              <span class="text-fg-subtle">· 8 services</span>
+            </h2>
+            <div class="space-y-3" id="sections"></div>
+          </div>
+          <!-- not deployed -->
+          <div>
+            <div class="mb-2 flex items-center gap-1.5 text-sm font-medium text-fg-muted">
+              <i data-lucide="chevron-right" class="h-4 w-4"></i> Not deployed / no access <span class="text-fg-subtle">· 27</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="overlay"></div>
+  <div id="drawer"></div>
+  <div id="pulse" style="width:0;height:0;opacity:0"></div>
+  <svg id="cursor" width="26" height="26" viewBox="0 0 26 26" style="opacity:0">
+    <path d="M5 3 L5 20 L9.5 15.7 L12.4 22.4 L15.1 21.2 L12.2 14.6 L18.5 14.4 Z"
+          fill="#fff" stroke="#0b1016" stroke-width="1.3" stroke-linejoin="round"/>
+  </svg>
+
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script>
+  // ----------------------------------------------------------------------------
+  // Mock data — entirely fictional. No real AWS account is involved.
+  // ----------------------------------------------------------------------------
+  const TONE_TEXT = { neutral:'text-fg', ok:'text-ok', warn:'text-warn', error:'text-error', info:'text-info', accent:'text-accent' };
+  const TONE_BADGE = {
+    neutral:'bg-surface-2 text-fg-muted border-border', ok:'bg-ok-soft text-ok border-ok/30',
+    warn:'bg-warn-soft text-warn border-warn/30', error:'bg-error-soft text-error border-error/30',
+    info:'bg-info-soft text-info border-info/30', accent:'bg-accent-soft text-accent border-accent/40'
+  };
+  const TONE_DOT = { neutral:'bg-fg-subtle/50', ok:'bg-ok', warn:'bg-warn', error:'bg-error', info:'bg-info', accent:'bg-accent' };
+  const CHART = { accent:'#38bdf8', cyan:'#22d3ee', ok:'#34c78e', info:'#60a5fa', warn:'#f0b840', error:'#f4636e' };
+
+  // deterministic RNG so frames are reproducible
+  function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+  function series(seed, n, base, amp, drift, spike){
+    const rnd = mulberry32(seed); const out=[]; let v=base;
+    for(let i=0;i<n;i++){ v += (rnd()-0.5)*amp + drift; if(spike && rnd()>0.86) v += amp*1.6*rnd();
+      v = Math.max(base*0.15, v); out.push(v); }
+    return out;
+  }
+
+  const SIDEBAR = [
+    ['Compute', [['ec2','Server'],['asg','Scaling'],['lambda','Zap']]],
+    ['Containers', [['ecs','Boxes'],['eks','Hexagon'],['ecr','Package']]],
+    ['Storage', [['s3','Database'],['ebs','HardDrive'],['efs','Folder']]],
+    ['Database', [['rds','Database'],['dynamodb','Table'],['elasticache','MemoryStick']]],
+    ['Networking', [['vpc','Network'],['elbv2','Waypoints'],['route53','Globe2'],['apigateway','Webhook']]],
+    ['Security', [['iam','Users'],['kms','KeyRound'],['acm','BadgeCheck']]],
+    ['Management', [['cfn','Layers'],['alarms','BellRing'],['logs','ScrollText']]],
+    ['Integration', [['sns','Megaphone'],['sqs','Inbox'],['sfn','Workflow']]]
+  ];
+  const SIDEBAR_LABEL = {
+    ec2:'EC2 Instances', asg:'Auto Scaling Groups', lambda:'Lambda Functions', ecs:'ECS Clusters',
+    eks:'EKS Clusters', ecr:'ECR Repositories', s3:'S3 Buckets', ebs:'EBS Volumes', efs:'EFS File Systems',
+    rds:'RDS Instances', dynamodb:'DynamoDB Tables', elasticache:'ElastiCache', vpc:'VPCs',
+    elbv2:'Load Balancers', route53:'Route 53 Zones', apigateway:'API Gateway', iam:'IAM Users',
+    kms:'KMS Keys', acm:'ACM Certificates', cfn:'CloudFormation', alarms:'CloudWatch Alarms',
+    logs:'Log Groups', sns:'SNS Topics', sqs:'SQS Queues', sfn:'Step Functions'
+  };
+
+  function metric(label, unit, colorKey, pts){ return { label, unit, color: CHART[colorKey], pts }; }
+
+  const SECTIONS = [
+    {
+      id:'lambda', label:'Lambda Functions', icon:'Zap', category:'Compute', noun:'functions', count:312,
+      breakdown:[],
+      metrics:[
+        metric('Invocations','count','accent', series(11,40,4200,900,40,true)),
+        metric('Errors','count','error', series(12,40,6,5,0.1,true)),
+        metric('Duration p95','ms','info', series(13,40,180,60,-1,false)),
+        metric('Throttles','count','warn', series(14,40,2,3,0,true))
+      ],
+      cols:['Function','Runtime','Memory','Timeout','Last modified'],
+      rows:[
+        ['checkout-api-prod','nodejs20.x','512 MB','30s','2d ago'],
+        ['image-resize-worker','python3.12','1024 MB','120s','5h ago'],
+        ['stripe-webhook-handler','nodejs20.x','256 MB','15s','1d ago'],
+        ['nightly-report-gen','python3.12','2048 MB','900s','12h ago'],
+        ['auth-token-rotator','nodejs18.x','128 MB','10s','3d ago'],
+        ['search-indexer','java17','3008 MB','300s','6h ago']
+      ]
+    },
+    {
+      id:'s3', label:'S3 Buckets', icon:'Database', category:'Storage', noun:'buckets', count:47,
+      breakdown:[{count:43,label:'private',tone:'ok'},{count:4,label:'public',tone:'warn'}],
+      metrics:[],
+      cols:[['Bucket','left'],['Region','left'],['Encryption','left'],['Public','left'],['Created','right']],
+      rows:[
+        ['acme-prod-assets','us-east-1',['SSE-KMS','accent'],['Blocked','ok'],'2023-04-12'],
+        ['acme-user-uploads','us-east-1',['SSE-S3','info'],['Blocked','ok'],'2023-06-01'],
+        ['acme-public-web','us-east-1',['SSE-S3','info'],['Public','warn'],'2022-11-20'],
+        ['acme-db-backups','us-west-2',['SSE-KMS','accent'],['Blocked','ok'],'2023-01-08'],
+        ['acme-terraform-state','us-east-1',['SSE-KMS','accent'],['Blocked','ok'],'2022-09-15'],
+        ['cf-logs-273849162534','us-east-1',['SSE-S3','info'],['Blocked','ok'],'2023-08-30']
+      ]
+    },
+    {
+      id:'ec2', label:'EC2 Instances', icon:'Server', category:'Compute', noun:'instances', count:24,
+      breakdown:[{count:19,label:'running',tone:'ok'},{count:5,label:'stopped',tone:'neutral'}],
+      metrics:[
+        metric('CPU Utilization','percent','accent', series(21,40,34,14,0,false)),
+        metric('Network In','bytes/second','cyan', series(22,40,4.2e6,1.6e6,2e4,true)),
+        metric('Network Out','bytes/second','info', series(23,40,3.1e6,1.2e6,1e4,true)),
+        metric('Disk Read Ops','count','ok', series(24,40,140,70,0,true))
+      ],
+      cols:[['Instance','left'],['Type','left'],['State','left'],['AZ','left'],['Public IP','left'],['Launched','right']],
+      rows:[
+        ['web-prod-3 · i-0a91f3c2','m5.large',['running','ok'],'us-east-1a','54.81.22.140','14d ago'],
+        ['web-prod-4 · i-0b72d4e1','m5.large',['running','ok'],'us-east-1b','3.221.8.19','14d ago'],
+        ['api-prod-1 · i-0c63a5f0','c6i.xlarge',['running','ok'],'us-east-1a','—','9d ago'],
+        ['worker-2 · i-0d54b6a9','c6i.2xlarge',['running','ok'],'us-east-1c','—','3d ago'],
+        ['bastion · i-0e45c7b8','t3.micro',['running','ok'],'us-east-1a','44.198.5.77','61d ago'],
+        ['batch-runner · i-0f36d8c7','r6i.large',['stopped','neutral'],'us-east-1b','—','22d ago']
+      ]
+    },
+    {
+      id:'sqs', label:'SQS Queues', icon:'Inbox', category:'Integration', noun:'queues', count:22,
+      breakdown:[{count:19,label:'standard',tone:'info'},{count:3,label:'FIFO',tone:'accent'}],
+      metrics:[
+        metric('Messages Sent','count','accent', series(31,40,820,260,5,true)),
+        metric('Messages Received','count','cyan', series(32,40,790,250,4,true)),
+        metric('Visible','count','info', series(33,40,42,30,-0.3,true)),
+        metric('Oldest Age','seconds','warn', series(34,40,12,8,0,true))
+      ],
+      cols:[['Queue','left'],['Type','left'],['Visible','right'],['In flight','right'],['Age','right']],
+      rows:[
+        ['order-events','Standard',['18','neutral'],'4','3s'],
+        ['email-outbox','Standard',['2','neutral'],'0','1s'],
+        ['payments.fifo','FIFO',['0','neutral'],'1','0s'],
+        ['image-jobs','Standard',['126','warn'],'12','41s'],
+        ['dead-letter-dlq','Standard',['7','error'],'0','5m']
+      ]
+    },
+    {
+      id:'cfn', label:'CloudFormation', icon:'Layers', category:'Management', noun:'stacks', count:18,
+      breakdown:[{count:16,label:'COMPLETE',tone:'ok'},{count:2,label:'IN_PROGRESS',tone:'info'}],
+      metrics:[],
+      cols:[['Stack','left'],['Status','left'],['Drift','left'],['Updated','right']],
+      rows:[
+        ['network-baseline',['CREATE_COMPLETE','ok'],['IN_SYNC','ok'],'31d ago'],
+        ['eks-platform',['UPDATE_COMPLETE','ok'],['IN_SYNC','ok'],'4d ago'],
+        ['data-pipeline',['UPDATE_IN_PROGRESS','info'],['—','neutral'],'2m ago'],
+        ['monitoring-stack',['CREATE_COMPLETE','ok'],['DRIFTED','warn'],'18d ago'],
+        ['edge-cdn',['CREATE_COMPLETE','ok'],['IN_SYNC','ok'],'9d ago']
+      ]
+    },
+    {
+      id:'dynamodb', label:'DynamoDB Tables', icon:'Table', category:'Database', noun:'tables', count:14,
+      breakdown:[{count:9,label:'on-demand',tone:'accent'},{count:5,label:'provisioned',tone:'info'}],
+      metrics:[
+        metric('Read Capacity','count','accent', series(41,40,310,120,1,true)),
+        metric('Write Capacity','count','cyan', series(42,40,180,80,1,true)),
+        metric('Throttled Reqs','count','error', series(43,40,1,2,0,true)),
+        metric('Item Count','count','ok', series(44,40,1.2e6,3e4,400,false))
+      ],
+      cols:[['Table','left'],['Mode','left'],['Items','right'],['Size','right'],['Status','left']],
+      rows:[
+        ['sessions','On-demand',['4.8M','neutral'],'2.1 GB',['ACTIVE','ok']],
+        ['users','On-demand',['612K','neutral'],'840 MB',['ACTIVE','ok']],
+        ['orders','Provisioned',['3.1M','neutral'],'5.6 GB',['ACTIVE','ok']],
+        ['idempotency-keys','On-demand',['58K','neutral'],'24 MB',['ACTIVE','ok']],
+        ['feature-flags','Provisioned',['142','neutral'],'120 KB',['ACTIVE','ok']]
+      ]
+    },
+    {
+      id:'rds', label:'RDS Instances', icon:'Database', category:'Database', noun:'instances', count:6,
+      breakdown:[{count:5,label:'available',tone:'ok'},{count:1,label:'stopped',tone:'neutral'}],
+      metrics:[
+        metric('CPU Utilization','percent','accent', series(51,40,46,10,0,false)),
+        metric('DB Connections','count','cyan', series(52,40,128,40,0,true)),
+        metric('Free Storage','bytes','ok', series(53,40,4.2e10,2e9,-3e8,false)),
+        metric('Read IOPS','count','info', series(54,40,900,300,0,true))
+      ],
+      cols:[['DB identifier','left'],['Engine','left'],['Class','left'],['Storage','right'],['Status','left']],
+      rows:[
+        ['orders-prod','postgres 15.4','db.r6g.xlarge','500 GB',['available','ok']],
+        ['orders-prod-replica','postgres 15.4','db.r6g.large','500 GB',['available','ok']],
+        ['analytics','postgres 15.4','db.m6g.2xlarge','2 TB',['available','ok']],
+        ['legacy-mysql','mysql 8.0.35','db.t3.medium','100 GB',['available','ok']],
+        ['staging-db','postgres 15.4','db.t3.large','100 GB',['stopped','neutral']]
+      ]
+    },
+    {
+      id:'elbv2', label:'Load Balancers', icon:'Waypoints', category:'Networking', noun:'load balancers', count:5,
+      breakdown:[{count:3,label:'application',tone:'accent'},{count:2,label:'network',tone:'info'}],
+      metrics:[
+        metric('Request Count','count','accent', series(61,40,9500,2600,30,true)),
+        metric('Target 5xx','count','error', series(62,40,3,4,0,true)),
+        metric('Response Time','seconds','info', series(63,40,0.08,0.04,0,true)),
+        metric('Healthy Hosts','count','ok', series(64,40,6,1.2,0,false))
+      ],
+      cols:[['Load balancer','left'],['Type','left'],['Scheme','left'],['AZs','right'],['State','left']],
+      rows:[
+        ['prod-alb','application','internet-facing','3',['active','ok']],
+        ['internal-alb','application','internal','3',['active','ok']],
+        ['api-nlb','network','internet-facing','2',['active','ok']],
+        ['grpc-nlb','network','internal','2',['active','ok']],
+        ['legacy-alb','application','internet-facing','2',['active','ok']]
+      ]
+    }
+  ];
+
+  // ----------------------------------------------------------------------------
+  // DOM builders
+  // ----------------------------------------------------------------------------
+  const el = (tag, cls, html) => { const n = document.createElement(tag); if(cls) n.className = cls; if(html!=null) n.innerHTML = html; return n; };
+  const icon = (name, cls) => `<i data-lucide="${kebab(name)}" class="${cls||''}"></i>`;
+  function kebab(s){ return s.replace(/([a-z])([A-Z])/g,'$1-$2').replace(/([A-Za-z])([0-9])/g,'$1-$2').toLowerCase(); }
+
+  // sidebar
+  (function(){
+    const top = document.getElementById('nav-top');
+    top.appendChild(el('div','flex items-center gap-2.5 rounded-lg bg-accent-soft px-3 py-2 text-sm font-medium text-accent',
+      icon('LayoutDashboard','h-4 w-4 shrink-0')+'<span>Overview</span>'));
+    top.appendChild(el('div','flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-fg-muted',
+      icon('DollarSign','h-4 w-4 shrink-0')+'<span>Cost</span>'));
+    const nav = document.getElementById('nav');
+    SIDEBAR.forEach(([cat, items])=>{
+      const g = el('div');
+      g.appendChild(el('div','px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-fg-subtle/80', cat));
+      const box = el('div','space-y-0.5');
+      items.forEach(([id,ic])=> box.appendChild(el('div','flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-fg-muted',
+        icon(ic,'h-4 w-4 shrink-0')+`<span class="truncate">${SIDEBAR_LABEL[id]}</span>`)));
+      g.appendChild(box); nav.appendChild(g);
+    });
+  })();
+
+  // stat tiles (values animated via count-up)
+  const TILES = [
+    { label:'Resources deployed', target:448, sub:'in us-east-1', tone:'accent' },
+    { label:'Services in use', target:8, sub:'with ≥ 1 resource', tone:'neutral' },
+    { label:'Services scanned', target:35, sub:'', tone:'neutral' },
+    { label:'No access', target:2, sub:'permission or region gaps', tone:'warn' }
+  ];
+  (function(){
+    const wrap = document.getElementById('tiles');
+    TILES.forEach((t,i)=>{
+      const c = el('div','rounded-xl border border-border bg-surface shadow-card p-4');
+      c.innerHTML = `<div class="flex items-center justify-between">
+          <span class="text-xs font-medium uppercase tracking-wide text-fg-subtle">${t.label}</span></div>
+        <div class="mt-2 text-2xl font-semibold tabular-nums ${TONE_TEXT[t.tone]}" data-tile="${i}">0</div>
+        ${t.sub?`<div class="mt-1 text-xs text-fg-muted">${t.sub}</div>`:''}`;
+      wrap.appendChild(c);
+    });
+  })();
+
+  // sparkline svg from points
+  function sparkSVG(m){
+    const W=300,H=78, pad=4;
+    const xs = m.pts, n=xs.length, min=Math.min(...xs), max=Math.max(...xs), span=(max-min)||1;
+    const X=i=> pad + i*(W-2*pad)/(n-1);
+    const Y=v=> pad + (H-2*pad)*(1-(v-min)/span);
+    let line='', area='';
+    xs.forEach((v,i)=>{ const x=X(i).toFixed(1), y=Y(v).toFixed(1); line += (i?'L':'M')+x+' '+y+' '; });
+    area = line + `L ${X(n-1).toFixed(1)} ${H} L ${X(0).toFixed(1)} ${H} Z`;
+    const gid = 'grad'+Math.random().toString(36).slice(2,8);
+    // faint horizontal gridlines to evoke CartesianGrid
+    let grid='';
+    for(let k=1;k<=2;k++){ const y=(pad+(H-2*pad)*k/3).toFixed(1); grid+=`<line x1="0" x2="${W}" y1="${y}" y2="${y}" stroke="rgb(var(--border))" stroke-dasharray="3 3"/>`; }
+    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" width="100%" height="100%">
+      <defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${m.color}" stop-opacity="0.35"/>
+        <stop offset="100%" stop-color="${m.color}" stop-opacity="0"/></linearGradient></defs>
+      ${grid}
+      <path class="spark-area" d="${area}" fill="url(#${gid})" opacity="0"/>
+      <path class="spark-line" d="${line}" stroke="${m.color}"/>
+    </svg>`;
+  }
+
+  function badge(text, tone){ return `<span class="inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-medium ${TONE_BADGE[tone]}">${text}</span>`; }
+
+  function table(sec){
+    const cols = sec.cols.map(c => Array.isArray(c)?c:[c,'left']);
+    let head = cols.map(([h,a])=>`<th class="px-3 py-2 font-medium ${a==='right'?'text-right':''}">${h}</th>`).join('');
+    let body = sec.rows.map(r=>{
+      const tds = r.map((cell,ci)=>{
+        const align = cols[ci][1]==='right'?'text-right tabular-nums':'';
+        let inner;
+        if(Array.isArray(cell)) inner = badge(cell[0], cell[1]);
+        else if(ci===0) inner = `<span class="font-medium text-fg">${cell}</span>`;
+        else inner = cell;
+        return `<td class="px-3 py-1.5 align-top text-fg-muted ${align}">${inner}</td>`;
+      }).join('');
+      return `<tr class="border-b border-border/60">${tds}</tr>`;
+    }).join('');
+    return `<div class="overflow-hidden"><table class="w-full border-collapse text-sm">
+      <thead><tr class="border-b border-border text-left text-xs uppercase tracking-wide text-fg-subtle">${head}</tr></thead>
+      <tbody>${body}</tbody></table></div>`;
+  }
+
+  function sectionEl(sec){
+    const card = el('div','rounded-xl border border-border bg-surface shadow-card overflow-hidden');
+    const breakdown = (sec.breakdown&&sec.breakdown.length)
+      ? `<div class="hidden flex-wrap gap-x-3 gap-y-1 md:flex">${sec.breakdown.slice(0,4).map(b=>
+          `<span class="inline-flex items-center gap-1.5 text-xs text-fg-muted"><span class="h-2 w-2 rounded-full ${TONE_DOT[b.tone]}"></span><span class="tabular-nums font-medium text-fg">${b.count}</span><span>${b.label}</span></span>`).join('')}</div>`
+      : '';
+    const metricsBlock = sec.metrics.length ? `
+      <div>
+        <h3 class="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-fg-subtle">
+          Headline metrics <span class="text-fg-subtle/70">· across all ${sec.noun}</span></h3>
+        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          ${sec.metrics.map(m=>`
+            <section class="rounded-xl border border-border bg-surface shadow-card">
+              <header class="border-b border-border px-4 py-2.5"><h2 class="truncate text-sm font-semibold text-fg">${m.label}</h2></header>
+              <div class="px-4 pb-3 pt-3"><div style="width:100%;height:78px">${sparkSVG(m)}</div></div>
+            </section>`).join('')}
+        </div>
+      </div>` : '';
+    card.innerHTML = `
+      <div class="flex items-center gap-3 px-4 py-3">
+        <div class="flex min-w-0 flex-1 items-center gap-3 text-left">
+          ${icon('ChevronDown','h-4 w-4 shrink-0 text-fg-subtle')}
+          <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent">${icon(sec.icon,'h-4 w-4')}</div>
+          <div class="min-w-0">
+            <div class="truncate text-sm font-semibold text-fg">${sec.label}</div>
+            <div class="text-xs text-fg-subtle">${sec.category}</div>
+          </div>
+        </div>
+        ${breakdown}
+        <span class="ml-2 whitespace-nowrap text-fg"><span class="text-lg font-semibold tabular-nums">${sec.count}</span><span class="ml-1 text-xs text-fg-subtle">${sec.noun}</span></span>
+        <div class="rounded-lg border border-border bg-surface-2 p-1.5 text-fg-muted">${icon('ArrowUpRight','h-4 w-4')}</div>
+      </div>
+      <div class="space-y-4 border-t border-border p-4">
+        ${metricsBlock}
+        ${table(sec)}
+      </div>`;
+    return card;
+  }
+  (function(){ const wrap=document.getElementById('sections'); SECTIONS.forEach(s=>wrap.appendChild(sectionEl(s))); })();
+
+  // drawer (Lambda detail)
+  document.getElementById('drawer').innerHTML = `
+    <div class="flex h-14 items-center justify-between border-b border-border px-4">
+      <div class="flex items-center gap-2 min-w-0">
+        <div class="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-soft text-accent">${icon('Zap','h-4 w-4')}</div>
+        <div class="min-w-0"><div class="truncate text-sm font-semibold text-fg">checkout-api-prod</div>
+          <div class="text-[11px] text-fg-subtle">Lambda function</div></div>
+      </div>
+      ${icon('X','h-4 w-4 text-fg-subtle')}
+    </div>
+    <div class="space-y-4 p-4">
+      <div class="flex gap-2">
+        <div class="inline-flex items-center gap-1 rounded-lg border border-border bg-accent-soft px-2.5 py-1 text-xs font-medium text-accent">Details</div>
+        <div class="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs text-fg-subtle">Raw JSON</div>
+      </div>
+      <div>
+        <div class="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-fg-subtle">Configuration</div>
+        <div class="rounded-xl border border-border bg-surface">
+          ${[['Runtime','nodejs20.x'],['Handler','index.handler'],['Memory','512 MB'],['Timeout','30 s'],['Architecture','arm64'],['Last modified','2 days ago']]
+            .map((r,i)=>`<div class="flex items-center justify-between px-3 py-2 ${i?'border-t border-border/60':''}">
+              <span class="text-xs text-fg-subtle">${r[0]}</span><span class="text-xs font-medium text-fg tabular-nums">${r[1]}</span></div>`).join('')}
+        </div>
+      </div>
+      <div>
+        <div class="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-fg-subtle">Invocations · 24h</div>
+        <section class="rounded-xl border border-border bg-surface"><div class="px-3 py-3"><div style="width:100%;height:90px">${sparkSVG(metric('Invocations','count','accent', series(99,40,4200,900,40,true)))}</div></div></section>
+      </div>
+      <div>
+        <div class="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-fg-subtle">Tags</div>
+        <div class="flex flex-wrap gap-1.5">
+          ${badge('env: prod','accent')} ${badge('team: payments','neutral')} ${badge('app: checkout','neutral')}
+        </div>
+      </div>
+    </div>`;
+
+  // ----------------------------------------------------------------------------
+  // Render lucide icons, then expose the deterministic timeline.
+  // ----------------------------------------------------------------------------
+  lucide.createIcons();
+
+  // store path lengths for draw animation
+  const lines = [...document.querySelectorAll('.spark-line')];
+  lines.forEach(p=>{ try{ p.dataset.len = p.getTotalLength(); }catch(e){ p.dataset.len = 400; } });
+  const areas = [...document.querySelectorAll('.spark-area')];
+
+  const THEME_DARK = {
+    '--bg':[9,11,16],'--bg-elevated':[13,17,24],'--surface':[17,22,30],'--surface-2':[22,28,38],
+    '--surface-hover':[28,35,47],'--border':[31,39,51],'--border-strong':[46,57,74],
+    '--fg':[232,237,243],'--fg-muted':[148,161,178],'--fg-subtle':[99,112,130],
+    '--accent':[56,189,248],'--accent-hover':[125,211,252],'--accent-fg':[8,14,22],'--accent-soft':[12,33,47],
+    '--violet':[34,211,238],'--ok':[52,199,142],'--ok-soft':[16,44,36],'--warn':[240,184,64],'--warn-soft':[48,39,16],
+    '--error':[244,99,110],'--error-soft':[52,24,30],'--info':[96,165,250],'--info-soft':[17,33,54]
+  };
+  const THEME_LIGHT = {
+    '--bg':[246,248,250],'--bg-elevated':[255,255,255],'--surface':[255,255,255],'--surface-2':[246,248,251],
+    '--surface-hover':[237,242,247],'--border':[226,230,236],'--border-strong':[202,209,219],
+    '--fg':[16,24,39],'--fg-muted':[90,103,122],'--fg-subtle':[139,150,166],
+    '--accent':[2,132,199],'--accent-hover':[3,105,161],'--accent-fg':[255,255,255],'--accent-soft':[224,242,254],
+    '--violet':[8,145,178],'--ok':[21,145,101],'--ok-soft':[223,244,235],'--warn':[173,119,18],'--warn-soft':[250,242,222],
+    '--error':[214,56,71],'--error-soft':[251,231,233],'--info':[37,99,235],'--info-soft':[225,237,255]
+  };
+
+  const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+  const inv=(t,a,b)=> clamp((t-a)/(b-a),0,1);
+  const easeIO=x=> x<.5?2*x*x:1-Math.pow(-2*x+2,2)/2;
+  const easeOut=x=>1-Math.pow(1-x,3);
+  const lerp=(a,b,p)=>a+(b-a)*p;
+
+  const scroll = document.getElementById('scroll');
+  const page = document.getElementById('page');
+  const drawer = document.getElementById('drawer');
+  const overlay = document.getElementById('overlay');
+  const cursor = document.getElementById('cursor');
+  const pulse = document.getElementById('pulse');
+  const tileEls = [...document.querySelectorAll('[data-tile]')];
+  let SCROLL_MAX = 0;
+
+  const DURATION = 16.8;
+
+  function applyTheme(p){ // 0 dark -> 1 light
+    const r = document.documentElement;
+    for(const k in THEME_DARK){
+      const d=THEME_DARK[k], l=THEME_LIGHT[k];
+      r.style.setProperty(k, `${Math.round(lerp(d[0],l[0],p))} ${Math.round(lerp(d[1],l[1],p))} ${Math.round(lerp(d[2],l[2],p))}`);
+    }
+  }
+
+  function scrollNorm(t){
+    if(t<2.2) return 0;
+    if(t<3.2) return easeIO(inv(t,2.2,3.2))*0.13;
+    if(t<7.0) return 0.13;                                  // hold during drawer
+    if(t<11.0) return lerp(0.13,1,easeIO(inv(t,7.0,11.0))); // reveal everything
+    if(t<11.7) return 1;
+    if(t<12.7) return lerp(1,0,easeIO(inv(t,11.7,12.7)));
+    return 0;
+  }
+  function drawerNorm(t){
+    if(t<2.9) return 0;
+    if(t<3.6) return easeIO(inv(t,2.9,3.6));
+    if(t<6.3) return 1;
+    if(t<6.9) return 1-easeIO(inv(t,6.3,6.9));
+    return 0;
+  }
+  function themeNorm(t){
+    if(t<12.9) return 0;
+    if(t<13.7) return easeIO(inv(t,12.9,13.7));
+    if(t<15.2) return 1;
+    if(t<16.0) return 1-easeIO(inv(t,15.2,16.0));
+    return 0;
+  }
+
+  function seek(t){
+    t = clamp(t,0,DURATION);
+    if(SCROLL_MAX<=0){ SCROLL_MAX = Math.max(0, page.scrollHeight - scroll.clientHeight + 16); }
+
+    // intro fade/rise
+    const intro = easeOut(inv(t,0,0.55));
+    document.getElementById('app').style.opacity = intro;
+    document.getElementById('app').style.transform = `translateY(${lerp(8,0,intro)}px)`;
+
+    // count-up tiles
+    const cu = easeOut(inv(t,0.3,1.7));
+    tileEls.forEach((n,i)=>{ n.textContent = Math.round(TILES[i].target*cu).toLocaleString('en-US'); });
+
+    // chart draw
+    const dp = easeIO(inv(t,1.1,3.0));
+    lines.forEach(p=>{ const len=+p.dataset.len; p.style.strokeDasharray=len; p.style.strokeDashoffset=len*(1-dp); });
+    areas.forEach(a=>{ a.style.opacity = dp; });
+
+    // scroll
+    page.style.transform = `translateY(${(-scrollNorm(t)*SCROLL_MAX).toFixed(1)}px)`;
+
+    // drawer + overlay
+    const dn = drawerNorm(t);
+    drawer.style.transform = `translateX(${((1-dn)*100).toFixed(2)}%)`;
+    overlay.style.opacity = (dn*0.45).toFixed(3);
+
+    // cursor: glide toward a Lambda row, click pulse as the drawer opens
+    if(t>1.7 && t<6.4){
+      const ce = easeIO(inv(t,1.7,2.9));
+      const cx = lerp(960, 470, ce), cy = lerp(150, 392, ce);
+      cursor.style.opacity = clamp(inv(t,1.7,2.1),0,1) * clamp(1-inv(t,6.0,6.4),0,1);
+      cursor.style.transform = `translate(${cx}px, ${cy}px)`;
+      // pulse ring at click moment (~2.9s)
+      const pr = inv(t,2.85,3.45);
+      if(pr>0 && pr<1){ const r=lerp(4,34,pr); pulse.style.left=cx+'px'; pulse.style.top=cy+'px';
+        pulse.style.width=r*2+'px'; pulse.style.height=r*2+'px'; pulse.style.opacity=(1-pr)*0.9; }
+      else pulse.style.opacity=0;
+    } else { cursor.style.opacity=0; pulse.style.opacity=0; }
+
+    // theme crossfade
+    applyTheme(themeNorm(t));
+    // header icon swap (sun in dark, moon in light) — purely cosmetic
+  }
+
+  window.__seek = seek;
+  window.__DURATION = DURATION;
+  // signal readiness after a layout + paint settle
+  requestAnimationFrame(()=>{ seek(0); requestAnimationFrame(()=>{ setTimeout(()=>{ window.__ready = true; }, 60); }); });
+  </script>
+</body>
+</html>
