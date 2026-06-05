@@ -6,6 +6,9 @@ directories:
 files:
   - out/**/*
   - package.json
+# Ad-hoc sign the macOS app (no Apple Developer ID); without a valid signature
+# arm64 macOS reports the app as "damaged". No-op on Windows/Linux.
+afterPack: build/afterPack.cjs
 win:
   target:
     - portable
