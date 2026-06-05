@@ -47,7 +47,25 @@ The AWS Console is powerful but slow, region-locked one-page-at-a-time, and nois
 
 ---
 
-## Quick start
+## Install
+
+### Download — one click, no build
+
+Grab the installer for your OS from the **[latest release »](https://github.com/vikas0706/cloudgaze/releases/latest)**:
+
+| OS | Download | First launch |
+|----|----------|--------------|
+| **Windows** 10/11 | **[⬇ Installer `.exe`](https://github.com/vikas0706/cloudgaze/releases/latest/download/CloudGaze-Setup-Windows-x64.exe)** · [portable](https://github.com/vikas0706/cloudgaze/releases/latest/download/CloudGaze-Windows-Portable-x64.exe) | If SmartScreen warns: **More info → Run anyway**. |
+| **macOS** · Apple Silicon | **[⬇ `.dmg` (arm64)](https://github.com/vikas0706/cloudgaze/releases/latest/download/CloudGaze-macOS-arm64.dmg)** | Open, drag to Applications, then **right-click → Open**. |
+| **macOS** · Intel | **[⬇ `.dmg` (x64)](https://github.com/vikas0706/cloudgaze/releases/latest/download/CloudGaze-macOS-x64.dmg)** | Open, drag to Applications, then **right-click → Open**. |
+| **Linux** · AppImage | **[⬇ `.AppImage`](https://github.com/vikas0706/cloudgaze/releases/latest/download/CloudGaze-Linux-x86_64.AppImage)** | `chmod +x CloudGaze-*.AppImage && ./CloudGaze-*.AppImage` |
+| **Linux** · Debian/Ubuntu | **[⬇ `.deb`](https://github.com/vikas0706/cloudgaze/releases/latest/download/CloudGaze-Linux-amd64.deb)** | `sudo apt install ./CloudGaze-Linux-amd64.deb` |
+
+Launch CloudGaze, then pick your **AWS profile + region** in the top bar — it reads the credentials already in your `~/.aws` (the same ones the AWS CLI uses) and only ever makes read-only calls. Nothing to configure, nothing stored by the app.
+
+> **First-launch warnings are expected — the apps are *unsigned*** (code-signing certificates are a paid, per-OS cost this project doesn't carry yet). CloudGaze is open-source and read-only, so you can read every line or build it yourself below.
+> - **Windows:** SmartScreen → **More info → Run anyway**.
+> - **macOS:** **right-click the app → Open** the first time (on recent macOS, allow it via **System Settings ▸ Privacy & Security ▸ Open Anyway**, or run `xattr -dr com.apple.quarantine /Applications/CloudGaze.app`).
 
 ### Run from source
 
@@ -64,11 +82,11 @@ A quick check that your shell is configured:
 aws sts get-caller-identity
 ```
 
-### Build / package
+### Build it yourself
 
 ```bash
 npm run build        # production bundle -> out/
-npm run dist         # package for the current OS -> dist-app/
+npm run dist         # package for your current OS -> dist-app/
 ```
 
 ---
