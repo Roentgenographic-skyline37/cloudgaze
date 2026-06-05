@@ -24,10 +24,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # No `cache: npm` — that requires a committed lockfile, which we
+      # deliberately don't have (see the npm install step below).
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
 
       # No package-lock.json is committed (see .gitignore): npm records only the
       # host platform's optional Rollup native binary, so a lockfile made on one
@@ -58,6 +59,10 @@ jobs:
 
   release:
     needs: build
+    # Run even if a platform failed, so a single finicky OS can't sink the whole
+    # release — publish whatever built. `fail_on_unmatched_files` still fails the
+    # job (no empty release) if *nothing* built.
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Download all bundles
@@ -65,10 +70,14 @@ jobs:
         with:
           path: bundles
 
+      - name: List downloaded bundles
+        run: find bundles -type f -printf '%P\t%s bytes\n' || true
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: bundles/**/*
+          fail_on_unmatched_files: true
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
