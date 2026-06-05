@@ -10,14 +10,17 @@ win:
   target:
     - portable
     - nsis
-# Each Windows target needs its own name — both emit .exe, so a shared
-# artifactName would collide. (${target} is not a valid electron-builder macro.)
+# Artifact names are intentionally VERSION-LESS so that stable
+# https://github.com/.../releases/latest/download/<name> URLs in the README
+# always resolve to the newest build. Each Windows target needs its own name —
+# both emit .exe, so a shared artifactName would collide. (${target} is not a
+# valid electron-builder macro.)
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
-  artifactName: ${productName}-${version}-windows-setup.${ext}
+  artifactName: ${productName}-Setup-Windows-${arch}.${ext}
 portable:
-  artifactName: ${productName}-${version}-windows-portable.${ext}
+  artifactName: ${productName}-Windows-Portable-${arch}.${ext}
 mac:
   # Build separate x64 and arm64 dmgs so both Intel and Apple Silicon Macs are
   # covered (more robust than a universal lipo merge, which this pure-JS app
@@ -28,11 +31,11 @@ mac:
         - x64
         - arm64
   category: public.app-category.developer-tools
-  artifactName: ${productName}-${version}-mac-${arch}.${ext}
+  artifactName: ${productName}-macOS-${arch}.${ext}
 linux:
   target:
     - AppImage
     - deb
   category: Development
   maintainer: CloudGaze contributors
-  artifactName: ${productName}-${version}-linux-${arch}.${ext}
+  artifactName: ${productName}-Linux-${arch}.${ext}
