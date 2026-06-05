@@ -1,0 +1,28 @@
+appId: com.cloudgaze.app
+productName: CloudGaze
+directories:
+  output: dist-app
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+win:
+  target:
+    - portable
+    - nsis
+  artifactName: ${productName}-${version}-windows-${target}.${ext}
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+mac:
+  target:
+    - dmg
+  category: public.app-category.developer-tools
+  artifactName: ${productName}-${version}-mac-${arch}.${ext}
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Development
+  maintainer: CloudGaze contributors
+  artifactName: ${productName}-${version}-linux-${arch}.${ext}

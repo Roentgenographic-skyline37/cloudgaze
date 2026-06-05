@@ -1,0 +1,48 @@
+name: Release
+
+# Build CloudGaze for Windows, macOS, and Linux on every v* tag and attach the
+# bundles to the GitHub Release. electron-builder can't cross-build macOS from
+# other OSes, so each platform builds on its own native runner.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      - name: Build + package
+        run: npm run dist:ci
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifacts to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist-app/*.exe
+            dist-app/*.dmg
+            dist-app/*.AppImage
+            dist-app/*.deb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
